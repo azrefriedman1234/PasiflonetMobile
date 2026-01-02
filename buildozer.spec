@@ -1,20 +1,20 @@
 [app]
-title = Pasiflonet Pro
+title = Pasiflonet Ultra
 package.name = pasiflonet
 package.domain = org.azre.pasiflonet
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,mp4
-version = 0.2
+version = 0.3
 
-# --- קריטי: דרישות מערכת מעודכנות ---
+# --- ספריות חובה ---
 requirements = python3,kivy,kivymd,telethon,pillow,deep-translator,arabic-reshaper,python-bidi,openssl,requests,ffmpeg
 
-# --- קריטי: הגדרה לרוחב ---
+# --- הגדרות תצוגה ---
 orientation = landscape
 fullscreen = 1
 
 # --- הרשאות ---
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK
 
 # --- הגדרות אנדרואיד ---
 android.api = 33
