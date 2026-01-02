@@ -9,7 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- התיקון: הורדנו את המילה המיותרת מהקישור ---
       - name: Free Disk Space (Aggressive)
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
@@ -41,8 +40,9 @@ jobs:
           pip3 install --upgrade pip
           pip3 install buildozer cython==0.29.33
 
+      # --- התיקון: הוספנו "yes |" כדי לאשר את הרישיונות אוטומטית ---
       - name: Build APK
-        run: buildozer -v android debug
+        run: yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
