@@ -9,7 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # מפנה מקום בדיסק כדי שלא ייגמר באמצע
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -17,50 +16,29 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      # התקנת Java (חובה לאנדרואיד)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # התקנת כל התלויות שאנדרואיד צריך (בלי דוקר)
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-pip \
-            build-essential \
-            git \
-            python3 \
-            python3-dev \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            autoconf \
-            libtool \
-            cmake
+            python3-pip build-essential git python3 python3-dev ffmpeg \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
+            zlib1g-dev libffi-dev libssl-dev autoconf libtool cmake
 
-      # התקנת Buildozer עצמו
       - name: Install Buildozer
         run: |
           pip3 install --upgrade pip
           pip3 install buildozer cython==0.29.33
 
-      # בניית ה-APK (השלב הקריטי)
       - name: Build APK
         run: buildozer -v android debug
 
-      # העלאת הקובץ המוכן
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
