@@ -1,4 +1,4 @@
-name: Build Pasiflonet
+name: Build Pasiflonet Python
 on:
   push:
     branches: [ main ]
@@ -9,12 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # התקנת FFmpeg וספריות מערכת
-      - name: Install Dependencies
+      # שלב ניקוי - מפנה מקום בשרת כדי שלא ייחנק
+      - name: Free Disk Space
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libffi-dev libssl-dev
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
+      # בנייה נטו עם Buildozer (בלי לחפש gradlew ידני)
       - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
@@ -26,4 +29,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: pasiflonet-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
