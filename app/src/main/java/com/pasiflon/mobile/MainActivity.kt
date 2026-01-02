@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -22,16 +23,13 @@ data class TelegramMsg(val id: Long, val sender: String, var text: String, val h
 class MainActivity : AppCompatActivity() {
     private val messages = mutableListOf<TelegramMsg>()
     private lateinit var adapter: MessageAdapter
+    private var loginDialog: AlertDialog? = null
 
-    // מנהל ההרשאות - יבקש גישה לקבצים מיד בהפעלה
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions.entries.all { it.value }
-        if (granted) {
-            Toast.makeText(this, "הרשאות מדיה אושרו - המערכת מוכנה", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "חובה לאשר הרשאות כדי לערוך וידאו", Toast.LENGTH_LONG).show()
+        if (permissions.entries.all { it.value }) {
+            Toast.makeText(this, "הרשאות מדיה אושרו", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -39,7 +37,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. בדיקה ובקשת הרשאות אוטומטית
         checkAndRequestPermissions()
 
         findViewById<ImageButton>(R.id.btn_settings).setOnClickListener {
@@ -50,13 +47,12 @@ class MainActivity : AppCompatActivity() {
         adapter = MessageAdapter(messages)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
+    }
 
-        // 2. בדיקה אם המשתמש מחובר (אם לא - נבקש טלפון)
+    // הבדיקה עוברת לכאן כדי שתרוץ בכל פעם שחוזרים למסך הראשי
+    override fun onResume() {
+        super.onResume()
         checkLoginStatus()
-
-        // נתונים ראשוניים
-        messages.add(TelegramMsg(1, "מערכת", "ברוך הבא. אנא וודא שהגדרות ה-API מוזנות.", false))
-        adapter.notifyDataSetChanged()
     }
 
     private fun checkAndRequestPermissions() {
@@ -65,71 +61,98 @@ class MainActivity : AppCompatActivity() {
         } else {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
-
-        val notGranted = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        if (notGranted.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissions.toTypedArray())
+        
+        if (permissions.any { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }) {
+            requestPermissionLauncher.launch(permissions)
         }
     }
 
     private fun checkLoginStatus() {
         val prefs = getSharedPreferences("pasiflon_prefs", Context.MODE_PRIVATE)
         val apiId = prefs.getString("api_id", "")
-        
+        val isLoggedIn = prefs.getBoolean("is_logged_in", false)
+
+        // תרחיש 1: אין API מוגדר -> חייב לשלוח להגדרות
         if (apiId.isNullOrEmpty()) {
-            Toast.makeText(this, "חסרים פרטי API - נא להגדיר בהגדרות", Toast.LENGTH_LONG).show()
+            showMissingApiDialog()
             return
         }
 
-        // כאן בעתיד תהיה בדיקה מול TDLib אם ה-Auth State הוא Ready
-        // לצורך ההדגמה: אם אין "is_logged_in" בזיכרון, נקפיץ דיאלוג התחברות
-        if (!prefs.getBoolean("is_logged_in", false)) {
+        // תרחיש 2: יש API אבל לא מחובר -> דיאלוג התחברות
+        if (!isLoggedIn) {
             showPhoneLoginDialog()
+        } else {
+            // תרחיש 3: מחובר -> טוען הודעות (סימולציה כרגע)
+            if (messages.isEmpty()) {
+                messages.add(TelegramMsg(1, "מערכת", "המערכת מחוברת ומוכנה לפעולה.", false))
+                adapter.notifyDataSetChanged()
+            }
         }
     }
 
+    private fun showMissingApiDialog() {
+        if (loginDialog?.isShowing == true) return 
+
+        loginDialog = AlertDialog.Builder(this)
+            .setTitle("הגדרה ראשונית נדרשת")
+            .setMessage("כדי להפעיל את המערכת, עליך להזין תחילה את ה-API ID וה-Hash של טלגרם.")
+            .setPositiveButton("עבור להגדרות כעת") { _, _ ->
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
+            .setCancelable(false) // לא נותן לסגור בלי ללכת להגדרות
+            .show()
+    }
+
     private fun showPhoneLoginDialog() {
+        if (loginDialog?.isShowing == true) return
+
         val builder = AlertDialog.Builder(this)
         builder.setTitle("התחברות לטלגרם")
         
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(50, 20, 50, 0)
+        
         val input = EditText(this)
-        input.hint = "מספר טלפון (כולל קידומת +972)"
+        input.hint = "מספר טלפון (+972...)"
         input.inputType = android.text.InputType.TYPE_CLASS_PHONE
-        builder.setView(input)
+        layout.addView(input)
+        
+        builder.setView(layout)
 
         builder.setPositiveButton("שלח קוד") { _, _ ->
             val phone = input.text.toString()
-            if (phone.isNotEmpty()) {
-                // כאן נשלח את המספר ל-TDLib
-                showCodeLoginDialog(phone)
-            }
+            if (phone.isNotEmpty()) showCodeLoginDialog(phone)
         }
+        
+        // התיקון שלך: כפתור קיצור להגדרות מתוך מסך הלוגין
+        builder.setNeutralButton("פתח הגדרות API") { _, _ ->
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        
         builder.setCancelable(false)
-        builder.show()
+        loginDialog = builder.show()
     }
 
     private fun showCodeLoginDialog(phone: String) {
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("הזן קוד אימות")
-        builder.setMessage("נשלח קוד ל-$phone")
+        builder.setTitle("אימות דו-שלבי")
+        builder.setMessage("קוד נשלח ל-$phone")
         
         val input = EditText(this)
-        input.hint = "קוד בן 5 ספרות"
+        input.hint = "קוד אימות"
         input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
         builder.setView(input)
 
         builder.setPositiveButton("התחבר") { _, _ ->
-            val code = input.text.toString()
-            if (code.isNotEmpty()) {
-                // כאן נשלח את הקוד ל-TDLib
-                getSharedPreferences("pasiflon_prefs", Context.MODE_PRIVATE)
-                    .edit().putBoolean("is_logged_in", true).apply()
-                Toast.makeText(this, "התחברת בהצלחה!", Toast.LENGTH_SHORT).show()
-            }
+            // שמירת סטטוס התחברות
+            getSharedPreferences("pasiflon_prefs", Context.MODE_PRIVATE)
+                .edit().putBoolean("is_logged_in", true).apply()
+            
+            Toast.makeText(this, "התחברת בהצלחה! טוען נתונים...", Toast.LENGTH_SHORT).show()
+            recreate() // רענון המסך כדי להעלים את הדיאלוגים ולטעון את המצב החדש
         }
+        
         builder.setCancelable(false)
         builder.show()
     }
