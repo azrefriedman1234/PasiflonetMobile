@@ -123,6 +123,12 @@ ScreenManager:
                 size_hint_x: 1
                 on_release: app.save_settings()
 
+            MDLabel:
+                id: error_log
+                text: ""
+                theme_text_color: "Error"
+                font_style: "Caption"
+
         MDBoxLayout:
             orientation: 'vertical'
             size_hint_x: 0.4
@@ -228,40 +234,49 @@ class PasiflonetApp(MDApp):
         return Builder.load_string(KV)
 
     def on_start(self):
-        # יצירת קובץ דמי למניעת קריסות תמונה
+        # יצירת קובץ דמי
         if not os.path.exists("loading.png"):
             with open("loading.png", "wb") as f: f.write(b"")
-            
-        self.request_perms()
+        
+        # השהייה קטנה לפני הרשאות כדי לתת ל-UI לעלות
+        Clock.schedule_once(lambda x: self.request_perms_safe(), 1)
         self.load_config()
 
-    def request_perms(self):
+    def request_perms_safe(self):
+        # פונקציה מוגנת מקריסות
         if platform == 'android':
-            from android.permissions import request_permissions, Permission
-            from android.runnable import run_on_ui_thread
-            from jnius import autoclass
-            
-            # בדיקת גרסת אנדרואיד
-            Build = autoclass("android.os.Build")
-            VERSION = autoclass("android.os.Build$VERSION")
-            
-            perms = [Permission.INTERNET, Permission.ACCESS_NETWORK_STATE]
-            
-            if VERSION.SDK_INT >= 33:
-                # אנדרואיד 13+ דורש הרשאות מדיה ספציפיות
-                perms.extend([
-                    Permission.READ_MEDIA_IMAGES,
-                    Permission.READ_MEDIA_VIDEO,
-                    Permission.READ_MEDIA_AUDIO
-                ])
-            else:
-                # אנדרואיד ישן יותר
-                perms.extend([
-                    Permission.READ_EXTERNAL_STORAGE,
-                    Permission.WRITE_EXTERNAL_STORAGE
-                ])
+            try:
+                from android.permissions import request_permissions
+                from jnius import autoclass
                 
-            request_permissions(perms)
+                # שימוש במחרוזות ישירות כדי להימנע משגיאות Kivy
+                perms = [
+                    "android.permission.INTERNET",
+                    "android.permission.ACCESS_NETWORK_STATE",
+                ]
+                
+                # בדיקת גרסה בטוחה
+                Build = autoclass("android.os.Build")
+                VERSION = autoclass("android.os.Build$VERSION")
+                
+                if VERSION.SDK_INT >= 33:
+                    perms.append("android.permission.READ_MEDIA_IMAGES")
+                    perms.append("android.permission.READ_MEDIA_VIDEO")
+                    perms.append("android.permission.READ_MEDIA_AUDIO")
+                else:
+                    perms.append("android.permission.READ_EXTERNAL_STORAGE")
+                    perms.append("android.permission.WRITE_EXTERNAL_STORAGE")
+                
+                request_permissions(perms)
+            except Exception as e:
+                # כתיבת השגיאה למסך במקום לקרוס
+                self.log_error(f"Perm Error: {e}")
+
+    def log_error(self, msg):
+        print(msg)
+        try:
+            self.root.get_screen('settings').ids.error_log.text = str(msg)
+        except: pass
 
     def get_config_path(self):
         if platform == 'android':
@@ -278,7 +293,7 @@ class PasiflonetApp(MDApp):
                     self.root.current = 'login'
                     return
         except Exception as e:
-            toast(f"Config Error: {e}")
+            self.log_error(f"Config Load Error: {e}")
         self.root.current = 'settings'
 
     def save_settings(self):
@@ -294,7 +309,7 @@ class PasiflonetApp(MDApp):
             toast("Saved!")
             self.root.current = 'login'
         except Exception as e:
-            toast(f"Save Failed: {e}")
+            self.log_error(f"Save Error: {e}")
 
     def file_manager_open(self):
         try:
@@ -302,7 +317,7 @@ class PasiflonetApp(MDApp):
             self.file_manager.show(path)
             self.manager_open = True
         except Exception as e:
-            toast(f"Manager Error: {e}")
+            self.log_error(f"File Manager Error: {e}")
 
     def select_path(self, path):
         self.exit_manager()
@@ -312,7 +327,7 @@ class PasiflonetApp(MDApp):
             self.root.get_screen('settings').ids.preview_img.source = dest
             toast("Watermark Loaded!")
         except Exception as e:
-            toast(f"Copy Error: {e}")
+            self.log_error(f"Image Load Error: {e}")
 
     def exit_manager(self, *args):
         self.manager_open = False
@@ -348,7 +363,7 @@ class PasiflonetApp(MDApp):
                     self.phone_hash = res.phone_code_hash
                     Clock.schedule_once(lambda x: self.enable_verify())
             except Exception as e:
-                toast(f"Conn Error: {e}")
+                Clock.schedule_once(lambda x: toast(f"Connect Error: {e}"))
         threading.Thread(target=_connect).start()
 
     def enable_verify(self):
@@ -366,7 +381,7 @@ class PasiflonetApp(MDApp):
                 Clock.schedule_once(lambda x: self.switch_main())
                 self.client.loop.run_until_complete(self.listen())
             except Exception as e:
-                toast(f"Login Error: {e}")
+                Clock.schedule_once(lambda x: toast(f"Login Error: {e}"))
         threading.Thread(target=_verify).start()
 
     def switch_main(self):
@@ -385,4 +400,7 @@ class PasiflonetApp(MDApp):
         self.root.get_screen('main').ids.feed_container.add_widget(item, index=0)
 
 if __name__ == '__main__':
-    PasiflonetApp().run()
+    try:
+        PasiflonetApp().run()
+    except Exception as e:
+        print(e)

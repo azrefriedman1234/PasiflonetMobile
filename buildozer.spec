@@ -1,20 +1,21 @@
 [app]
-title = Pasiflonet Pro
-package.name = pasiflonet.pro
+title = Pasiflonet Final
+package.name = pasiflonet.final
 package.domain = org.azre.pasiflonet
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 1.3
+version = 1.4
 
-requirements = python3,kivy,kivymd,telethon,pillow,deep-translator,arabic-reshaper,python-bidi,openssl,requests
+# --- הוספנו את pyjnius למניעת קריסות JNI ---
+requirements = python3,kivy,kivymd,telethon,pillow,deep-translator,arabic-reshaper,python-bidi,openssl,requests,pyjnius
 
-# תמיכה בכל המעבדים (למניעת קריסה בפתיחה)
+# תמיכה בכל המעבדים
 android.archs = arm64-v8a, armeabi-v7a
 
 orientation = landscape
 fullscreen = 1
 
-# --- התיקון הקריטי: הרשאות לאנדרואיד 13 ומעלה ---
+# הרשאות מפורשות (הכי חשוב)
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK,READ_MEDIA_IMAGES,READ_MEDIA_VIDEO,READ_MEDIA_AUDIO
 
 android.api = 33
