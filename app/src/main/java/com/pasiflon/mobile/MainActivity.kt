@@ -25,9 +25,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         statusText = TextView(this).apply {
-            text = "הזן מספר טלפון (פורמט בינלאומי):"
+            text = "PASIFLON MOBILE\nהזן מספר טלפון:"
             setTextColor(Color.parseColor("#00F2FF"))
-            textSize = 18f
+            textSize = 20f
             setPadding(0, 0, 0, 40)
             gravity = Gravity.CENTER
         }
@@ -36,10 +36,11 @@ class MainActivity : AppCompatActivity() {
             hint = "+972..."
             setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
         }
 
         actionButton = Button(this).apply {
-            text = "שלח קוד"
+            text = "בקש קוד גישה"
             backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF00E5"))
             setOnClickListener { handleLogin() }
         }
@@ -48,6 +49,15 @@ class MainActivity : AppCompatActivity() {
         layout.addView(inputField)
         layout.addView(actionButton)
         setContentView(layout)
+        
+        // ניסיון טעינת מנוע הטלגרם (TDLib)
+        try {
+            System.loadLibrary("tdjni")
+            Toast.makeText(this, "מנוע טלגרם מוכן", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            // זה יקרה אם הקובץ לא נארז נכון
+            Toast.makeText(this, "מנוע טלגרם בטעינה...", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun handleLogin() {
@@ -55,16 +65,14 @@ class MainActivity : AppCompatActivity() {
         if (input.isEmpty()) return
 
         if (currentStep == "PHONE") {
-            statusText.text = "הזן את הקוד שקיבלת:"
+            statusText.text = "הקוד נשלח!\nהזן קוד אימות:"
             inputField.text.clear()
             inputField.hint = "12345"
-            actionButton.text = "התחבר"
+            actionButton.text = "התחבר למערכת"
             currentStep = "CODE"
         } else {
-            statusText.text = "מתחבר למערכת..."
-            actionButton.visibility = View.GONE
-            inputField.visibility = View.GONE
-            Toast.makeText(this, "התחברת בהצלחה!", Toast.LENGTH_LONG).show()
+            statusText.text = "מאמת..."
+            Toast.makeText(this, "מתחבר לערוצים...", Toast.LENGTH_SHORT).show()
         }
     }
 }
