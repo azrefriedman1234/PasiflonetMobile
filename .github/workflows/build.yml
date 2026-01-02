@@ -9,9 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- התיקון: ניקוי אגרסיבי של הדיסק (מפנה 30GB) ---
+      # --- התיקון: הורדנו את המילה המיותרת מהקישור ---
       - name: Free Disk Space (Aggressive)
-        uses: jlumbroso/free-disk-space-action@v1.3.1
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
