@@ -1,24 +1,25 @@
 [app]
-title = Pasiflonet Test
-package.name = pasiflonet.test
+title = Pasiflonet Atomic
+package.name = pasiflonet.atomic
 package.domain = org.azre.pasiflonet
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 0.6
+version = 0.7
 
-# גרסה קלה ללא ספריות כבדות (לבדיקת קריסות)
-requirements = python3,kivy,kivymd,pillow
+# --- רק Kivy נקי, בלי KivyMD ---
+requirements = python3,kivy
 
-# --- התיקון: חזרנו ל-landscape ---
+# --- הגדרה קריטית: תמיכה בכל המעבדים ---
+android.archs = arm64-v8a, armeabi-v7a
+
 orientation = landscape
 fullscreen = 1
 
-# הרשאות בסיסיות
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+# --- בלי הרשאות בכלל (למניעת קריסות אבטחה) ---
+# android.permissions = 
 
 android.api = 33
 android.minapi = 21
-android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
 
