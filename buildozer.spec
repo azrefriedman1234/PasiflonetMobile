@@ -1,22 +1,20 @@
 [app]
-title = Pasiflonet Ultra
+title = Pasiflonet Safe
 package.name = pasiflonet
 package.domain = org.azre.pasiflonet
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,mp4
-version = 0.3
+version = 0.4
 
-# --- ספריות חובה ---
+# ספריות חובה - שים לב ל-openssl ו-requests
 requirements = python3,kivy,kivymd,telethon,pillow,deep-translator,arabic-reshaper,python-bidi,openssl,requests,ffmpeg
 
-# --- הגדרות תצוגה ---
 orientation = landscape
 fullscreen = 1
 
-# --- הרשאות ---
+# הרשאות מורחבות
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK
 
-# --- הגדרות אנדרואיד ---
 android.api = 33
 android.minapi = 21
 android.archs = arm64-v8a

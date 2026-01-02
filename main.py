@@ -1,94 +1,50 @@
 import os
-import asyncio
+import sys
+import logging
 import threading
-import time
+import asyncio
 from datetime import datetime
 
+# Kivy Imports
 from kivy.lang import Builder
-from kivy.clock import Clock
-from kivy.core.window import Window
-from kivy.properties import StringProperty, ObjectProperty
 from kivymd.app import MDApp
-from kivymd.uix.card import MDCard
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.toast import toast
+from kivy.clock import Clock
 from kivy.utils import platform
+from kivymd.uix.card import MDCard
+from kivy.properties import StringProperty
 
+# Logic Imports
 from telethon import TelegramClient, events
-
-# --- תמיכה בעברית ---
 import arabic_reshaper
 from bidi.algorithm import get_display
 
-def hebrew(text):
-    if not text: return ""
-    try:
-        return get_display(arabic_reshaper.reshape(text))
-    except:
-        return text
-
-# --- ממשק המשתמש ---
+# --- UI Layout ---
 KV = '''
 <FeedItem>:
     orientation: 'vertical'
     size_hint_y: None
-    height: dp(280)
+    height: dp(200)
     padding: dp(10)
-    spacing: dp(10)
-    elevation: 2
-    radius: [15]
-    md_bg_color: 0.15, 0.15, 0.15, 1
-
+    spacing: dp(5)
+    elevation: 1
+    radius: [10]
+    md_bg_color: 0.2, 0.2, 0.2, 1
+    
     MDBoxLayout:
-        orientation: 'horizontal'
-        size_hint_y: 0.7
         spacing: dp(10)
-
-        # אזור התמונה (תצוגה מקדימה)
         AsyncImage:
-            id: thumb_img
             source: root.image_source
-            size_hint_x: 0.4
+            size_hint_x: 0.3
             allow_stretch: True
             keep_ratio: True
-            radius: [10]
-
-        # אזור הטקסט והפרטים
-        MDBoxLayout:
-            orientation: 'vertical'
-            size_hint_x: 0.6
-            
-            MDLabel:
-                text: root.timestamp
-                theme_text_color: "Secondary"
-                font_style: "Caption"
-                size_hint_y: None
-                height: dp(20)
-
-            MDLabel:
-                id: msg_text
-                text: root.message_text
-                theme_text_color: "Custom"
-                text_color: 1, 1, 1, 1
-                font_style: "Body2"
-                valign: "top"
-    
-    # כפתורי פעולה
-    MDBoxLayout:
-        orientation: 'horizontal'
-        size_hint_y: 0.3
-        spacing: dp(10)
         
-        MDRaisedButton:
-            text: "SEND (Background)"
-            md_bg_color: 0, 0.8, 0, 1
-            on_release: root.send_to_background()
-
         MDLabel:
-            id: status_label
-            text: "Ready"
-            halign: "center"
-            theme_text_color: "Hint"
+            text: root.text_content
+            theme_text_color: "Custom"
+            text_color: 1, 1, 1, 1
+            font_style: "Body2"
+            size_hint_x: 0.7
+            valign: "top"
 
 ScreenManager:
     MainScreen:
@@ -96,112 +52,72 @@ ScreenManager:
 <MainScreen>:
     name: 'main'
     MDBoxLayout:
-        orientation: 'vertical'
-        md_bg_color: 0.05, 0.05, 0.05, 1
+        orientation: 'horizontal'
         
-        MDTopAppBar:
-            title: "Pasiflonet Feed"
-            right_action_items: [["refresh", lambda x: app.connect_telegram()]]
-        
-        # אזור הגלילה (הפיד)
-        ScrollView:
-            MDBoxLayout:
-                id: feed_container
-                orientation: 'vertical'
-                adaptive_height: True
-                padding: dp(10)
-                spacing: dp(15)
+        # תפריט צד (30%)
+        MDBoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.3
+            md_bg_color: 0.1, 0.1, 0.1, 1
+            padding: dp(10)
+            spacing: dp(10)
+            
+            MDLabel:
+                text: "STATUS"
+                halign: "center"
+                theme_text_color: "Custom"
+                text_color: 0, 1, 1, 1
+                font_style: "H6"
+                size_hint_y: None
+                height: dp(50)
+
+            MDRaisedButton:
+                text: "1. Connect Telegram"
+                on_release: app.start_telegram()
+                size_hint_x: 1
+
+            MDRaisedButton:
+                text: "2. Test FFmpeg"
+                on_release: app.test_ffmpeg()
+                size_hint_x: 1
+                md_bg_color: 0.4, 0.4, 0.4, 1
+
+            ScrollView:
+                MDLabel:
+                    id: logs
+                    text: "System Ready..."
+                    font_size: '10sp'
+                    theme_text_color: "Custom"
+                    text_color: 0, 1, 0, 1
+                    size_hint_y: None
+                    height: self.texture_size[1]
+
+        # אזור הפיד (70%)
+        MDBoxLayout:
+            orientation: 'vertical'
+            md_bg_color: 0, 0, 0, 1
+            padding: dp(5)
+            
+            MDTopAppBar:
+                title: "Pasiflonet Feed"
+                id: toolbar
+            
+            ScrollView:
+                MDBoxLayout:
+                    id: feed_box
+                    orientation: 'vertical'
+                    adaptive_height: True
+                    spacing: dp(10)
 '''
 
-# --- רכיב הודעה בודדת בפיד ---
 class FeedItem(MDCard):
-    image_source = StringProperty("loading.png") # תמונת ברירת מחדל
-    message_text = StringProperty("")
-    timestamp = StringProperty("")
-    
-    def __init__(self, message_obj, client, **kwargs):
-        super().__init__(**kwargs)
-        self.message_obj = message_obj
-        self.client = client
-        self.download_thumbnail()
+    image_source = StringProperty("loading.png")
+    text_content = StringProperty("")
 
-    def download_thumbnail(self):
-        # מוריד רק את ה-Thumbnail הקטן (מיידי)
-        def _download():
-            try:
-                if self.message_obj.photo or self.message_obj.video:
-                    path = f"thumb_{self.message_obj.id}.jpg"
-                    # טריק של טלגרם: הורדת thumbnail בלבד
-                    self.client.loop.run_until_complete(
-                        self.message_obj.download_media(file=path, thumb=1)
-                    )
-                    # עדכון ה-UI חייב להיות בחוט הראשי
-                    Clock.schedule_once(lambda x: self.update_image(path))
-            except Exception as e:
-                print(f"Thumb error: {e}")
-
-        threading.Thread(target=_download).start()
-
-    def update_image(self, path):
-        self.image_source = path
-
-    def send_to_background(self):
-        self.ids.status_label.text = "Processing in Background..."
-        self.ids.status_label.text_color = (1, 1, 0, 1) # Yellow
-        # שולח למנוע העיבוד
-        app = MDApp.get_running_app()
-        app.background_worker.add_task(self.message_obj, self)
-
-    def mark_complete(self):
-        self.ids.status_label.text = "SENT! ✅"
-        self.ids.status_label.text_color = (0, 1, 0, 1) # Green
-
-# --- מנוע עיבוד ברקע ---
-class BackgroundWorker:
-    def __init__(self, client):
-        self.client = client
-        self.queue = []
-        self.is_running = False
-
-    def add_task(self, message, ui_item):
-        self.queue.append({'msg': message, 'ui': ui_item})
-        if not self.is_running:
-            threading.Thread(target=self.process_queue).start()
-
-    def process_queue(self):
-        self.is_running = True
-        while self.queue:
-            task = self.queue.pop(0)
-            message = task['msg']
-            ui_item = task['ui']
-            
-            try:
-                # 1. הורדת הקובץ המלא (לוקח זמן)
-                full_path = f"full_{message.id}.mp4" # פשטות לדוגמה
-                # כאן אמורה להיות ההורדה האמיתית (סימולציה למניעת קריסת רשת כרגע)
-                # self.client.download_media(message, full_path)
-                time.sleep(2) # סימולציה של הורדה ועיבוד FFmpeg
-                
-                # 2. עיבוד FFmpeg (כאן יכנס הקוד מהשלב הקודם)
-                # run_ffmpeg(full_path...)
-                
-                # 3. שליחה לערוץ היעד
-                # self.client.send_file(...)
-
-                # עדכון UI שהסתיים
-                Clock.schedule_once(lambda x: ui_item.mark_complete())
-                
-            except Exception as e:
-                print(f"Background Error: {e}")
-        
-        self.is_running = False
-
-# --- האפליקציה הראשית ---
 class PasiflonetApp(MDApp):
     client = None
-    background_worker = None
     
-    # פרטי התחברות (תכניס את שלך כאן)
+    # --- הגדרות משתמש ---
     API_ID = 26569766
     API_HASH = 'YOUR_HASH_HERE'
 
@@ -210,13 +126,40 @@ class PasiflonetApp(MDApp):
         self.theme_cls.primary_palette = "Cyan"
         return Builder.load_string(KV)
 
-    def on_start(self):
-        self.request_permissions()
-        # יצירת קובץ תמונה זמני למקרה שאין
-        with open("loading.png", "wb") as f:
-            f.write(b"") 
+    def log(self, msg):
+        # כותב למסך כדי שתראה שגיאות
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        final_msg = f"[{timestamp}] {msg}\n"
+        print(final_msg)
+        if self.root:
+            lbl = self.root.get_screen('main').ids.logs
+            lbl.text += final_msg
 
-    def request_permissions(self):
+    def get_safe_path(self, filename):
+        # --- התיקון הקריטי לקריסות ---
+        # באנדרואיד חייבים להשתמש בתיקייה פרטית לכתיבה
+        if platform == 'android':
+            base = self.user_data_dir
+        else:
+            base = os.getcwd()
+        
+        full_path = os.path.join(base, filename)
+        return full_path
+
+    def on_start(self):
+        # לא מריצים שום דבר כבד בהתחלה!
+        self.request_perms()
+        
+        # יצירת תמונת דמי במיקום בטוח
+        safe_img = self.get_safe_path("loading.png")
+        if not os.path.exists(safe_img):
+            try:
+                with open(safe_img, "wb") as f:
+                    f.write(b"") # קובץ ריק רק שלא יקרוס
+            except Exception as e:
+                self.log(f"Error creating img: {e}")
+
+    def request_perms(self):
         if platform == 'android':
             from android.permissions import request_permissions, Permission
             request_permissions([
@@ -225,39 +168,64 @@ class PasiflonetApp(MDApp):
                 Permission.INTERNET
             ])
 
-    def connect_telegram(self):
-        threading.Thread(target=self._start_client).start()
+    def start_telegram(self):
+        self.log("Starting Telegram connection...")
+        threading.Thread(target=self._connect_thread).start()
 
-    def _start_client(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        self.client = TelegramClient('pasiflon_session', self.API_ID, self.API_HASH)
-        self.client.start() # יבקש טלפון בטרמינל בפעם הראשונה, או קובץ session
-        self.background_worker = BackgroundWorker(self.client)
+    def _connect_thread(self):
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # שימוש בקובץ session במיקום בטוח
+            session_path = self.get_safe_path('pasiflon_session')
+            self.log(f"Session path: {session_path}")
+            
+            self.client = TelegramClient(session_path, self.API_ID, self.API_HASH)
+            
+            # בדיקת התחברות
+            self.client.connect()
+            if not self.client.is_user_authorized():
+                self.log("ERROR: Need to login via terminal first or add Login UI")
+                # בהמשך נוסיף את ה-UI של ההתחברות חזרה, כרגע בודקים יציבות
+            else:
+                self.log("Connected Successfully! ✅")
+                self.client.start()
+                
+                @self.client.on(events.NewMessage)
+                async def handler(event):
+                    text = event.text[:50] if event.text else "Media"
+                    Clock.schedule_once(lambda x: self.add_item(text))
+                
+                self.log("Listening for messages...")
+                loop.run_until_complete(self.client.run_until_disconnected())
+                
+        except Exception as e:
+            self.log(f"Telegram Crash: {e}")
 
-        # האזנה להודעות חדשות
-        @self.client.on(events.NewMessage)
-        async def handler(event):
-            # הוספת הודעה לפיד
-            Clock.schedule_once(lambda x: self.add_feed_item(event))
+    def add_item(self, text):
+        try:
+            reshaped = get_display(arabic_reshaper.reshape(text))
+            item = FeedItem()
+            item.text_content = reshaped
+            item.image_source = self.get_safe_path("loading.png")
+            
+            grid = self.root.get_screen('main').ids.feed_box
+            grid.add_widget(item, index=0)
+        except Exception as e:
+            self.log(f"UI Error: {e}")
 
-        loop.run_until_complete(self.client.run_until_disconnected())
-
-    def add_feed_item(self, event):
-        container = self.root.get_screen('main').ids.feed_container
-        
-        # יצירת אייטם חדש
-        text_preview = event.text[:100] + "..." if event.text else "Media File"
-        timestamp = event.date.strftime("%H:%M")
-        
-        item = FeedItem(
-            message_obj=event,
-            client=self.client,
-            message_text=hebrew(text_preview),
-            timestamp=timestamp
-        )
-        container.add_widget(item, index=0) # מוסיף למעלה (הכי חדש)
+    def test_ffmpeg(self):
+        import subprocess
+        try:
+            cmd = ["ffmpeg", "-version"]
+            out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            self.log("FFmpeg OK! ✅")
+        except Exception as e:
+            self.log(f"FFmpeg Error: {e}")
 
 if __name__ == '__main__':
-    PasiflonetApp().run()
+    try:
+        PasiflonetApp().run()
+    except Exception as e:
+        print(f"CRITICAL: {e}")
