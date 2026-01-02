@@ -7,9 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      # שלב ניקוי - מפנה מקום בשרת כדי שלא ייחנק
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -17,7 +16,6 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      # בנייה נטו עם Buildozer (בלי לחפש gradlew ידני)
       - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
@@ -26,7 +24,8 @@ jobs:
           buildozer_version: master
 
       - name: Upload APK
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: pasiflonet-apk
           path: bin/*.apk
+          compression-level: 0 
