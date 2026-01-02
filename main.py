@@ -1,82 +1,147 @@
-import asyncio
+import os
+import sys
 import threading
+import logging
 from kivy.lang import Builder
-from kivy.clock import Clock
 from kivymd.app import MDApp
-from kivymd.uix.datatables import MDDataTable
+from kivymd.uix.screen import MDScreen
 from kivymd.toast import toast
-from kivy.metrics import dp
-from telethon import TelegramClient, events
-from deep_translator import GoogleTranslator
-import arabic_reshaper
-from bidi.algorithm import get_display
+from kivy.utils import platform
+from kivy.clock import Clock
+from kivy.core.window import Window
 
-def hebrew(text):
-    if not text: return ""
-    try:
-        return get_display(arabic_reshaper.reshape(text))
-    except:
-        return text
-
+# --- Layout לרוחב ---
 KV = '''
 ScreenManager:
-    LoginScreen:
     MainScreen:
-    DetailScreen:
-
-<LoginScreen>:
-    name: 'login'
-    MDBoxLayout:
-        orientation: 'vertical'
-        padding: 20
-        spacing: 20
-        md_bg_color: 0.05, 0.05, 0.05, 1
-        MDLabel:
-            text: "PASIFLONET PY"
-            halign: "center"
-            theme_text_color: "Custom"
-            text_color: 0, 1, 1, 1
-            font_style: "H4"
-        MDTextField:
-            id: phone
-            hint_text: "Phone Number"
-            mode: "rectangle"
-        MDRaisedButton:
-            text: "LOGIN"
-            pos_hint: {"center_x": 0.5}
-            on_release: app.send_code()
 
 <MainScreen>:
     name: 'main'
     MDBoxLayout:
-        orientation: 'vertical'
-        md_bg_color: 0, 0, 0, 1
-        MDTopAppBar:
-            title: "Feed"
+        orientation: 'horizontal'  # פריסה לרוחב
+        padding: 10
+        spacing: 10
+        md_bg_color: 0.05, 0.05, 0.05, 1
+        
+        # צד ימין - תפריט וכפתורים
         MDBoxLayout:
-            id: table_box
+            orientation: 'vertical'
+            size_hint_x: 0.3
+            spacing: 20
+            
+            MDLabel:
+                text: "PASIFLONET\\nCONTROL"
+                halign: "center"
+                theme_text_color: "Custom"
+                text_color: 0, 1, 1, 1
+                font_style: "H6"
+                size_hint_y: None
+                height: dp(80)
 
-<DetailScreen>:
-    name: 'detail'
-    MDLabel:
-        text: "Details"
-        halign: "center"
+            MDRaisedButton:
+                text: "Check FFmpeg"
+                size_hint_x: 0.9
+                pos_hint: {"center_x": 0.5}
+                on_release: app.check_ffmpeg()
+            
+            MDRaisedButton:
+                text: "Clear Logs"
+                size_hint_x: 0.9
+                pos_hint: {"center_x": 0.5}
+                md_bg_color: 0.3, 0.3, 0.3, 1
+                on_release: app.clear_logs()
+
+            Widget: # סתם מרווח
+
+        # צד שמאל - לוגים ומסך ראשי
+        MDBoxLayout:
+            orientation: 'vertical'
+            md_bg_color: 0, 0, 0, 1
+            radius: [10]
+            padding: 10
+            
+            MDLabel:
+                text: "System Logs:"
+                theme_text_color: "Secondary"
+                size_hint_y: None
+                height: dp(30)
+                
+            ScrollView:
+                MDLabel:
+                    id: log_label
+                    text: "Initializing..."
+                    theme_text_color: "Custom"
+                    text_color: 0, 1, 0, 1
+                    size_hint_y: None
+                    height: self.texture_size[1]
+                    valign: "top"
 '''
 
 class PasiflonetApp(MDApp):
-    API_ID = 26569766
-    API_HASH = 'YOUR_HASH_HERE' # תזכור לשים את ההאש שלך
-    client = None
-
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Cyan"
         return Builder.load_string(KV)
-    
-    def send_code(self):
-        toast("Connecting...")
-        # LITE VERSION LOGIC HERE
-        self.root.current = 'main'
+
+    def on_start(self):
+        # 1. בקשת הרשאות קריטית למניעת קריסה
+        self.request_android_permissions()
+        self.log("App Started in Landscape Mode")
+        self.log(f"Current Directory: {os.getcwd()}")
+
+    def request_android_permissions(self):
+        if platform == 'android':
+            from android.permissions import request_permissions, Permission
+            def callback(permission, results):
+                if all([res for res in results]):
+                    self.log("Permissions Granted! ✅")
+                else:
+                    self.log("Permissions Denied! ❌ App might crash.")
+
+            request_permissions(
+                [Permission.READ_EXTERNAL_STORAGE, 
+                 Permission.WRITE_EXTERNAL_STORAGE, 
+                 Permission.INTERNET], 
+                callback
+            )
+        else:
+            self.log("Not on Android, skipping permissions.")
+
+    def check_ffmpeg(self):
+        self.log("Checking for FFmpeg...")
+        # נסיון להריץ פקודה פשוטה
+        import subprocess
+        try:
+            # באנדרואיד הפקודה ffmpeg לא תמיד ב-PATH, ננסה ונתפוס שגיאה
+            cmd = ["ffmpeg", "-version"]
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = process.communicate()
+            
+            if process.returncode == 0:
+                self.log("FFmpeg found! ✅")
+                self.log(str(out)[:100])
+            else:
+                self.log("FFmpeg command failed (might need full path)")
+                self.log(f"Error: {err}")
+        except FileNotFoundError:
+            self.log("FFmpeg binary NOT found in PATH ❌")
+        except Exception as e:
+            self.log(f"Error checking FFmpeg: {e}")
+
+    def log(self, text):
+        # פונקציה שכותבת למסך כדי שתראה מה קורה
+        msg = f"\n> {text}"
+        if self.root:
+            lbl = self.root.get_screen('main').ids.log_label
+            lbl.text += msg
+        print(msg)
+
+    def clear_logs(self):
+        self.root.get_screen('main').ids.log_label.text = "Logs Cleared."
 
 if __name__ == '__main__':
-    PasiflonetApp().run()
+    try:
+        PasiflonetApp().run()
+    except Exception as e:
+        # תופס קריסות קריטיות
+        print(f"CRITICAL ERROR: {e}")
