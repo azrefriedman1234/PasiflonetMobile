@@ -124,10 +124,10 @@ ScreenManager:
                 on_release: app.save_settings()
 
             MDLabel:
-                id: error_log
-                text: ""
-                theme_text_color: "Error"
+                id: log_area
+                text: "System Ready"
                 font_style: "Caption"
+                theme_text_color: "Secondary"
 
         MDBoxLayout:
             orientation: 'vertical'
@@ -234,48 +234,52 @@ class PasiflonetApp(MDApp):
         return Builder.load_string(KV)
 
     def on_start(self):
-        # יצירת קובץ דמי
         if not os.path.exists("loading.png"):
             with open("loading.png", "wb") as f: f.write(b"")
         
-        # השהייה קטנה לפני הרשאות כדי לתת ל-UI לעלות
-        Clock.schedule_once(lambda x: self.request_perms_safe(), 1)
+        # דיחוי קל לבקשת הרשאות כדי לא לתקוע את ה-UI
+        Clock.schedule_once(lambda x: self.safe_request_perms(), 2)
         self.load_config()
 
-    def request_perms_safe(self):
-        # פונקציה מוגנת מקריסות
-        if platform == 'android':
+    def safe_request_perms(self):
+        if platform != 'android': return
+        
+        try:
+            from android.permissions import request_permissions, Permission
+            from jnius import autoclass
+            
+            # רשימת הרשאות בסיסית
+            perms = [
+                Permission.INTERNET,
+                Permission.ACCESS_NETWORK_STATE,
+            ]
+            
+            # ניסיון לבדוק גרסה ולהוסיף הרשאות חדשות
             try:
-                from android.permissions import request_permissions
-                from jnius import autoclass
-                
-                # שימוש במחרוזות ישירות כדי להימנע משגיאות Kivy
-                perms = [
-                    "android.permission.INTERNET",
-                    "android.permission.ACCESS_NETWORK_STATE",
-                ]
-                
-                # בדיקת גרסה בטוחה
-                Build = autoclass("android.os.Build")
                 VERSION = autoclass("android.os.Build$VERSION")
-                
                 if VERSION.SDK_INT >= 33:
                     perms.append("android.permission.READ_MEDIA_IMAGES")
                     perms.append("android.permission.READ_MEDIA_VIDEO")
-                    perms.append("android.permission.READ_MEDIA_AUDIO")
                 else:
-                    perms.append("android.permission.READ_EXTERNAL_STORAGE")
-                    perms.append("android.permission.WRITE_EXTERNAL_STORAGE")
-                
-                request_permissions(perms)
+                    perms.append(Permission.READ_EXTERNAL_STORAGE)
+                    perms.append(Permission.WRITE_EXTERNAL_STORAGE)
             except Exception as e:
-                # כתיבת השגיאה למסך במקום לקרוס
-                self.log_error(f"Perm Error: {e}")
+                # אם זיהוי הגרסה נכשל, נלך על הבטוח (ישן)
+                self.log(f"Ver check fail: {e}")
+                perms.append(Permission.READ_EXTERNAL_STORAGE)
+                perms.append(Permission.WRITE_EXTERNAL_STORAGE)
 
-    def log_error(self, msg):
+            request_permissions(perms)
+            
+        except Exception as e:
+            # אם משהו קורס בהרשאות - לא להפיל את האפליקציה!
+            self.log(f"Perms Error: {e}")
+            toast("Permissions Error - Check Settings")
+
+    def log(self, msg):
         print(msg)
         try:
-            self.root.get_screen('settings').ids.error_log.text = str(msg)
+            self.root.get_screen('settings').ids.log_area.text = str(msg)
         except: pass
 
     def get_config_path(self):
@@ -292,8 +296,7 @@ class PasiflonetApp(MDApp):
                 if self.config_data.get('api_id'):
                     self.root.current = 'login'
                     return
-        except Exception as e:
-            self.log_error(f"Config Load Error: {e}")
+        except: pass
         self.root.current = 'settings'
 
     def save_settings(self):
@@ -309,7 +312,7 @@ class PasiflonetApp(MDApp):
             toast("Saved!")
             self.root.current = 'login'
         except Exception as e:
-            self.log_error(f"Save Error: {e}")
+            self.log(f"Save failed: {e}")
 
     def file_manager_open(self):
         try:
@@ -317,7 +320,7 @@ class PasiflonetApp(MDApp):
             self.file_manager.show(path)
             self.manager_open = True
         except Exception as e:
-            self.log_error(f"File Manager Error: {e}")
+            self.log(f"File Mgr Error: {e}")
 
     def select_path(self, path):
         self.exit_manager()
@@ -325,9 +328,9 @@ class PasiflonetApp(MDApp):
             dest = os.path.join(self.user_data_dir if platform == 'android' else '.', 'watermark.png')
             shutil.copyfile(path, dest)
             self.root.get_screen('settings').ids.preview_img.source = dest
-            toast("Watermark Loaded!")
+            toast("Image Loaded")
         except Exception as e:
-            self.log_error(f"Image Load Error: {e}")
+            self.log(f"Copy Error: {e}")
 
     def exit_manager(self, *args):
         self.manager_open = False
@@ -336,16 +339,12 @@ class PasiflonetApp(MDApp):
     def open_settings(self):
         self.root.current = 'settings'
 
-    # --- Telegram Logic ---
+    # --- Telegram ---
     def start_login(self):
         api_id = self.config_data.get('api_id')
         api_hash = self.config_data.get('api_hash')
         phone = self.root.get_screen('login').ids.phone_input.text
         
-        if not api_id: 
-            toast("No Settings Found")
-            return
-
         session = os.path.join(self.user_data_dir if platform == 'android' else '.', 'session')
         self.client = TelegramClient(session, api_id, api_hash)
         
@@ -363,7 +362,7 @@ class PasiflonetApp(MDApp):
                     self.phone_hash = res.phone_code_hash
                     Clock.schedule_once(lambda x: self.enable_verify())
             except Exception as e:
-                Clock.schedule_once(lambda x: toast(f"Connect Error: {e}"))
+                Clock.schedule_once(lambda x: toast(f"Conn Error: {e}"))
         threading.Thread(target=_connect).start()
 
     def enable_verify(self):
