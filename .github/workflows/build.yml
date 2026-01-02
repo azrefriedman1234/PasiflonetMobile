@@ -1,0 +1,29 @@
+name: Build Pasiflonet
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      # התקנת FFmpeg וספריות מערכת
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libffi-dev libssl-dev
+
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: master
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v2
+        with:
+          name: pasiflonet-apk
+          path: ${{ steps.buildozer.outputs.filename }}
