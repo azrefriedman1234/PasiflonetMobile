@@ -1,20 +1,22 @@
 [app]
-title = Pasiflonet Safe
-package.name = pasiflonet
+title = Pasiflonet Test
+package.name = pasiflonet.test
 package.domain = org.azre.pasiflonet
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,mp4
-version = 0.4
+source.include_exts = py,png,jpg,kv,atlas
+version = 0.5
 
-# ספריות חובה - שים לב ל-openssl ו-requests
-requirements = python3,kivy,kivymd,telethon,pillow,deep-translator,arabic-reshaper,python-bidi,openssl,requests,ffmpeg
+# --- ניקוי עמוק: רק פייתון וממשק גרפי ---
+requirements = python3,kivy,kivymd,pillow
 
-orientation = landscape
-fullscreen = 1
+# --- הגדרות מסך ---
+orientation = sensor
+fullscreen = 0
 
-# הרשאות מורחבות
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,WAKE_LOCK
+# --- הרשאות בסיסיות בלבד ---
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 
+# --- הגדרות אנדרואיד סטנדרטיות ---
 android.api = 33
 android.minapi = 21
 android.archs = arm64-v8a
