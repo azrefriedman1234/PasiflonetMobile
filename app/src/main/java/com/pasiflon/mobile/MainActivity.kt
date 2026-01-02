@@ -6,6 +6,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.*
 import android.graphics.Color
+import android.content.Intent
 
 data class TelegramMsg(val id: Long, val sender: String, var text: String)
 
@@ -17,22 +18,25 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        findViewById<ImageButton>(R.id.btn_settings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         val recycler = findViewById<RecyclerView>(R.id.messages_recycler)
         adapter = MessageAdapter(messages)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
-        // סימולציה של הודעות נכנסות (במקום ה-TDLib שמתחבר ברקע)
-        for (i in 1..20) {
-            messages.add(TelegramMsg(i.toLong(), "ערוץ חדשות $i", "דיווח ראשוני מהשטח... הודעה מספר $i"))
-        }
+        // הודעות לדוגמה בערבית לבדיקת התרגום
+        messages.add(TelegramMsg(1, "ערוץ עזה", "عاجל: انفجارات في شمال قطاع غزة"))
+        messages.add(TelegramMsg(2, "חדשות חוץ", "Breaking news from the border"))
         adapter.notifyDataSetChanged()
     }
 
     inner class MessageAdapter(private val list: List<TelegramMsg>) : RecyclerView.Adapter<MessageAdapter.ViewHolder>() {
         class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
-            val sender = v.findViewById<TextView>(android.R.id.text1)
-            val content = v.findViewById<TextView>(android.R.id.text2)
+            val sender: TextView = v.findViewById(android.R.id.text1)
+            val content: TextView = v.findViewById(android.R.id.text2)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -47,9 +51,18 @@ class MainActivity : AppCompatActivity() {
             holder.content.text = msg.text
             holder.content.setTextColor(Color.WHITE)
             
+            // לחיצה ארוכה מתרגמת לעברית
+            holder.itemView.setOnLongClickListener {
+                TranslationManager.translateToHebrew(msg.text) { translated ->
+                    msg.text = translated
+                    notifyItemChanged(position)
+                }
+                true
+            }
+
+            // לחיצה קצרה פותחת עריכת מדיה
             holder.itemView.setOnClickListener {
-                Toast.makeText(this@MainActivity, "פותח עורך מדיה להודעה ${msg.id}", Toast.LENGTH_SHORT).show()
-                // כאן יפתח מסך הפרטים עם ה-Blur
+                startActivity(Intent(this@MainActivity, EditorActivity::class.java))
             }
         }
         override fun getItemCount() = list.size
