@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.Pasiflon" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">#00F2FF</item>
+        <item name="android:windowBackground">#050505</item>
+    </style>
+</resources>
