@@ -8,43 +8,65 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="הגדרות מערכת"
+        android:text="הגדרות API"
         android:textColor="#00F2FF"
         android:textSize="22sp"
         android:layout_gravity="center"
-        android:layout_marginBottom="30dp" />
+        android:layout_marginBottom="20dp" />
 
     <EditText
         android:id="@+id/edit_api_id"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Telegram API ID"
-        android:textColorHint="#44FFFFFF"
-        android:textColor="#FFFFFF"
-        android:layout_marginBottom="15dp" />
+        android:hint="API ID"
+        android:textColorHint="#88FFFFFF"
+        android:textColor="#FFFFFF" />
 
     <EditText
         android:id="@+id/edit_api_hash"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Telegram API Hash"
-        android:textColorHint="#44FFFFFF"
+        android:hint="API Hash"
+        android:textColorHint="#88FFFFFF"
+        android:textColor="#FFFFFF" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="יעד לשליחה"
+        android:textColor="#FF00E5"
+        android:layout_marginTop="20dp" />
+
+    <EditText
+        android:id="@+id/edit_chat_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Channel ID (e.g. -100...)"
+        android:textColorHint="#88FFFFFF"
         android:textColor="#FFFFFF"
-        android:layout_marginBottom="25dp" />
+        android:inputType="numberSigned" />
 
     <Button
         android:id="@+id/btn_pick_logo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="בחר לוגו סימן מים (תמונה)"
-        android:backgroundTint="#FF00E5"
-        android:layout_marginBottom="40dp" />
+        android:text="בחר לוגו"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="#FF00E5" />
+
+    <ImageView
+        android:id="@+id/logo_preview"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp" />
 
     <Button
         android:id="@+id/btn_save"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="שמור הגדרות"
+        android:layout_marginTop="30dp"
         android:backgroundTint="#00F2FF"
         android:textColor="#050505" />
 </LinearLayout>
